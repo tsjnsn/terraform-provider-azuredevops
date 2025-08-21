@@ -766,3 +766,22 @@ resource "azuredevops_servicehook_storage_queue_pipelines" "test" {
 }
 `, projectResource, accountKey, queueName, eventType)
 }
+
+// HclServicehookSubscriptionResourceBasic HCL describing a basic service hook subscription resource
+func HclServicehookSubscriptionResourceBasic(projectName, webhookUrl string) string {
+	projectResource := HclProjectResource(projectName)
+	return fmt.Sprintf(`
+%s
+
+resource "azuredevops_servicehook_subscription" "test" {
+  project_id          = azuredevops_project.project.id
+  publisher_id        = "pipelines"
+  event_type          = "ms.vss-pipelines.run-state-changed-event"
+  consumer_id         = "webHooks"
+  consumer_action_id  = "httpRequest"
+  consumer_inputs = {
+    url = "%s"
+  }
+}
+`, projectResource, webhookUrl)
+}
