@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/servicehooks"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/internal/acceptancetests/testutils"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/internal/client"
 )
 
 func TestAccServicehookSubscription_basic(t *testing.T) {
@@ -70,12 +73,26 @@ func checkServicehookSubscriptionDestroyed(s *terraform.State) error {
 			continue
 		}
 
-		// Note: We don't have a direct way to check if subscription was deleted
-		// since we'd need the service hooks client. For now, we just verify
-		// that the resource was removed from state.
+		// Check if subscription actually exists in Azure DevOps
+		if _, err := getServicehookSubscriptionFromResource(rs); err == nil {
+			return fmt.Errorf("Unexpectedly found a service hook subscription that should be deleted")
+		}
 	}
 
 	return nil
+}
+
+// given a resource from the state, return a servicehook subscription (and error)
+func getServicehookSubscriptionFromResource(resource *terraform.ResourceState) (*servicehooks.Subscription, error) {
+	subscriptionID, err := uuid.Parse(resource.Primary.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	clients := testutils.GetProvider().Meta().(*client.AggregatedClient)
+	return clients.ServiceHooksClient.GetSubscription(clients.Ctx, servicehooks.GetSubscriptionArgs{
+		SubscriptionId: &subscriptionID,
+	})
 }
 
 func hclServicehookSubscriptionResourceBasic(projectName string) string {
